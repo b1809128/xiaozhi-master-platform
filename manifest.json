@@ -1,0 +1,120 @@
+{
+  "firmwares": [
+    {
+      "name": "ESP32-S3 + ST7789 1.54 inch",
+      "chip": "ESP32-S3",
+      "display": "ST7789",
+      "audio": "INMP441",
+      "file": "fw_s3_st7789_inmp441_0x0.bin",
+      "description": "Cấu hình chuẩn cho ESP32-S3 đi kèm màn hình ST7789 1.54 inch và Micro INMP441.",
+      "pinout": {
+        "display": {
+          "SCL": "GPIO 12",
+          "SDA": "GPIO 11",
+          "CS": "GPIO 10",
+          "DC": "GPIO 13",
+          "RST": "GPIO 14"
+        },
+        "audio": {
+          "I2S_WS": "GPIO 42",
+          "I2S_SCK": "GPIO 2",
+          "I2S_SD": "GPIO 41"
+        }
+      }
+    },
+    {
+      "name": "ESP32-C3 Không Màn Hình",
+      "chip": "ESP32-C3",
+      "display": "None",
+      "audio": "INMP441",
+      "file": "fw_c3_none_inmp441_0x0.bin",
+      "description": "Cấu hình siêu nhỏ gọn dùng chip ESP32-C3, không có màn hình và sử dụng Micro INMP441.",
+      "pinout": {
+        "display": {},
+        "audio": {
+          "I2S_WS": "GPIO 5",
+          "I2S_SCK": "GPIO 1",
+          "I2S_SD": "GPIO 4"
+        }
+      }
+    },
+    {
+      "name": "ESP32-S3 Tròn GC9A01",
+      "chip": "ESP32-S3",
+      "display": "GC9A01",
+      "audio": "MSM261",
+      "file": "fw_s3_gc9a01_msm261_0x0.bin",
+      "description": "Cấu hình cho bo mạch tròn dùng màn hình GC9A01 và Micro MSM261 (I2S).",
+      "pinout": {
+        "display": {
+          "SCL": "GPIO 12",
+          "SDA": "GPIO 11",
+          "CS": "GPIO 10",
+          "DC": "GPIO 13",
+          "RST": "GPIO 14"
+        },
+        "audio": {
+          "I2S_WS": "GPIO 42",
+          "I2S_SCK": "GPIO 2",
+          "I2S_SD": "GPIO 41"
+        }
+      }
+    },
+    {
+      "name": "ESP32-S3 ILI9341 2.8 inch",
+      "chip": "ESP32-S3",
+      "display": "ILI9341",
+      "audio": "INMP441",
+      "file": "fw_s3_ili9341_inmp441_0x0.bin",
+      "description": "Cấu hình màn hình lớn ILI9341 2.8 inch và Micro INMP441 trên nền chip ESP32-S3.",
+      "pinout": {
+        "display": {
+          "SCL": "GPIO 12",
+          "SDA": "GPIO 11",
+          "CS": "GPIO 10",
+          "DC": "GPIO 13",
+          "RST": "GPIO 14"
+        },
+        "audio": {
+          "I2S_WS": "GPIO 42",
+          "I2S_SCK": "GPIO 2",
+          "I2S_SD": "GPIO 41"
+        }
+      }
+    },
+    {
+      "name": "ESP32-C3 + ST7789 1.54 inch",
+      "chip": "ESP32-C3",
+      "display": "ST7789",
+      "audio": "INMP441",
+      "file": "fw_c3_st7789_inmp441_0x0.bin",
+      "description": "Cấu hình dùng chip ESP32-C3 với màn hình ST7789 1.54 inch và Micro INMP441.",
+      "pinout": {
+        "display": {
+          "SCL": "GPIO 6",
+          "SDA": "GPIO 7",
+          "CS": "GPIO 10",
+          "DC": "GPIO 2",
+          "RST": "GPIO 3"
+        },
+        "audio": {
+          "I2S_WS": "GPIO 5",
+          "I2S_SCK": "GPIO 1",
+          "I2S_SD": "GPIO 4"
+        }
+      }
+    },
+    {
+      "name": "ESP32-S3 Không Màn Hình, Không Micro",
+      "chip": "ESP32-S3",
+      "display": "None",
+      "audio": "None",
+      "file": "fw_s3_none_none_0x0.bin",
+      "description": "Cấu hình tối giản chỉ chạy chip ESP32-S3 core, không màn hình, không micro.",
+      "pinout": {
+        "display": {},
+        "audio": {}
+      }
+    }
+  ]
+}

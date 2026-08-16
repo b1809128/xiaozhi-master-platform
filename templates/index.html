@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình Nạp Firmware Xiaozhi ESP32</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.15) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, rgba(88, 28, 135, 0.15) 0, transparent 50%);
+        }
+        
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        /* Interactive display simulator styles */
+        .lcd-screen-square {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            border: 6px solid #1e293b;
+            background: #000;
+            box-shadow: inset 0 0 15px rgba(59, 130, 246, 0.5), 0 0 10px rgba(59, 130, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .lcd-screen-rect {
+            width: 140px;
+            height: 100px;
+            border-radius: 8px;
+            border: 6px solid #1e293b;
+            background: #000;
+            box-shadow: inset 0 0 15px rgba(124, 58, 237, 0.5), 0 0 10px rgba(124, 58, 237, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .lcd-screen-circle {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            border: 6px solid #1e293b;
+            background: #000;
+            box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.5), 0 0 10px rgba(16, 185, 129, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .sim-grid {
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 8px 8px;
+        }
+        .sim-scanline {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            animation: scanline 2.5s linear infinite;
+        }
+        @keyframes scanline {
+            0% { top: -2px; }
+            100% { top: 100%; }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col justify-between font-sans">
+
+    <!-- Browser Warning Banner -->
+    <div id="browserWarningBanner" class="bg-amber-950/70 border-b border-amber-900/50 py-2.5 px-6 hidden">
+        <div class="max-w-7xl mx-auto flex items-center justify-between text-xs text-amber-300">
+            <span class="flex items-center">
+                <i class="fa-solid fa-triangle-exclamation mr-2 text-amber-400 text-sm"></i> 
+                <strong>Cảnh báo trình duyệt:</strong> Web Serial chỉ được hỗ trợ trên Chrome, Edge, Opera và Brave. Trình duyệt hiện tại của bạn có vẻ không tương thích.
+            </span>
+            <a href="https://www.google.com/chrome/" target="_blank" class="bg-amber-800 hover:bg-amber-700 text-white px-3 py-1 rounded font-semibold text-[11px] transition">Tải Chrome</a>
+        </div>
+    </div>
+
+    <!-- Header / Navbar -->
+    <header class="border-b border-slate-800/80 glass-panel py-3 px-6 sticky top-0 z-50 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-microchip text-xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-md font-bold leading-tight flex items-center space-x-2">
+                    <span class="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">Trình Nạp Firmware Xiaozhi</span>
+                    <span class="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-full">Local Mode</span>
+                </h1>
+                <p class="text-[10px] text-slate-400">Nạp Firmware tùy biến cho mạch ESP32 chạy trực tiếp không cần Internet</p>
+            </div>
+        </div>
+
+        <!-- Driver and Connection Status info -->
+        <div class="flex items-center space-x-4 text-xs">
+            <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800/80">
+                <span class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">USB Drivers:</span>
+                <a href="https://www.wconnect.com.cn/downloads/CH341SER_EXE.html" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline flex items-center space-x-0.5">
+                    <i class="fa-solid fa-download text-[9px] mr-1"></i><span>CH340</span>
+                </a>
+                <span class="text-slate-700">|</span>
+                <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" class="text-blue-400 hover:text-blue-300 hover:underline flex items-center space-x-0.5">
+                    <i class="fa-solid fa-download text-[9px] mr-1"></i><span>CP210x</span>
+                </a>
+            </div>
+            <div class="flex items-center space-x-2 border-l border-slate-800 pl-4">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" id="serialStatusIndicator"></span>
+                <span class="text-slate-400">Thiết bị:</span>
+                <span class="font-medium text-slate-300" id="serialStatusText">Chưa kết nối</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full">
+        
+        <!-- Left Side: Config Tabs & Flasher Panel (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col space-y-6">
+            
+            <!-- Config Board Panel -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl relative overflow-hidden flex flex-col">
+                <h2 class="text-xs font-bold text-slate-400 mb-4 tracking-wider uppercase flex items-center">
+                    <i class="fa-solid fa-sliders text-blue-400 mr-2 text-sm"></i> 1. CẤU HÌNH PHẦN CỨNG
+                </h2>
+                
+                <!-- Tab Headers -->
+                <div class="flex space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80 mb-5">
+                    <button id="tabPresetsBtn" onclick="switchTab('presets')" class="flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition duration-200 bg-blue-600 text-white shadow-md">
+                        <i class="fa-solid fa-cubes mr-1.5"></i>Cấu Hình Sẵn (Presets)
+                    </button>
+                    <button id="tabMatrixBtn" onclick="switchTab('matrix')" class="flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition duration-200 text-slate-400 hover:text-slate-200 hover:bg-slate-900">
+                        <i class="fa-solid fa-puzzle-piece mr-1.5"></i>Tùy Biến Linh Kiện
+                    </button>
+                </div>
+
+                <!-- TAB 1: Pre-built Presets Container -->
+                <div id="tabPresetsContent" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Presets cards will be injected here dynamically -->
+                </div>
+
+                <!-- TAB 2: Custom Matrix Selector -->
+                <div id="tabMatrixContent" class="hidden space-y-5">
+                    <!-- Chip Custom -->
+                    <div>
+                        <span class="block text-xs text-slate-400 font-bold mb-2 uppercase tracking-wide">Lựa chọn vi điều khiển (MCU):</span>
+                        <div class="grid grid-cols-2 gap-3" id="matrixChipsContainer">
+                            <!-- Chips options injected dynamically -->
+                        </div>
+                    </div>
+                    
+                    <!-- Display Custom -->
+                    <div>
+                        <span class="block text-xs text-slate-400 font-bold mb-2 uppercase tracking-wide">Màn hình LCD hiển thị:</span>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="matrixDisplaysContainer">
+                            <!-- Displays options injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Audio Custom -->
+                    <div>
+                        <span class="block text-xs text-slate-400 font-bold mb-2 uppercase tracking-wide">Linh kiện Microphone:</span>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="matrixAudiosContainer">
+                            <!-- Audio options injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Config Info Banner -->
+                <div id="firmwareDescriptionBanner" class="mt-5 p-3.5 bg-blue-950/20 border border-blue-900/40 rounded-xl flex items-start space-x-3 hidden">
+                    <i class="fa-solid fa-circle-info text-blue-400 mt-0.5 text-sm"></i>
+                    <div>
+                        <p class="text-xs text-blue-300 font-bold mb-0.5">Khớp cấu hình được hỗ trợ:</p>
+                        <p id="firmwareDescriptionText" class="text-[11px] text-slate-400 leading-normal"></p>
+                    </div>
+                </div>
+
+                <!-- No Matching Config Info Banner -->
+                <div id="noMatchBanner" class="mt-5 p-3.5 bg-rose-950/20 border border-rose-900/40 rounded-xl flex items-start space-x-3 hidden">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-400 mt-0.5 text-sm"></i>
+                    <div>
+                        <p class="text-xs text-rose-300 font-bold mb-0.5">Không tìm thấy Firmware phù hợp:</p>
+                        <p class="text-[11px] text-slate-400 leading-normal">
+                            Tổ hợp linh kiện bạn vừa chọn hiện chưa có file binary (.bin) dựng sẵn trong thư mục <code class="bg-slate-900 px-1 py-0.5 rounded text-rose-400">firmwares/</code>. Hãy chọn tổ hợp khác hoặc tạo cấu hình sẵn trong file <code class="bg-slate-900 px-1 py-0.5 rounded text-slate-200">manifest.json</code>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flasher Panel -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl relative overflow-hidden">
+                <h2 class="text-xs font-bold text-slate-400 mb-4 tracking-wider uppercase flex items-center">
+                    <i class="fa-solid fa-bolt text-indigo-400 mr-2 text-sm"></i> 2. BỘ NẠP FIRMWARE
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 font-bold mb-1.5 uppercase tracking-wide">Tốc độ ghi (Baudrate)</label>
+                        <div class="relative">
+                            <select id="selectBaudrate" class="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 appearance-none">
+                                <option value="115200">115200 (Chậm / An toàn)</option>
+                                <option value="460800">460800 (Trung bình)</option>
+                                <option value="921600" selected>921600 (Nhanh - Khuyên dùng)</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3.5 top-3 text-[10px] text-slate-500 pointer-events-none"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] text-slate-400 font-bold mb-2.5 uppercase tracking-wide">Xóa bộ nhớ (Erase Flash)</label>
+                        <label class="flex items-center space-x-2.5 cursor-pointer bg-slate-900/50 hover:bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-800/80 transition duration-150">
+                            <input type="checkbox" id="checkEraseFlash" class="rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-blue-500 h-4 w-4">
+                            <span class="text-xs text-slate-300">Xóa toàn bộ Flash trước khi nạp (Xóa triệt để data cũ)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button id="btnConnect" onclick="toggleConnection()" class="py-3 px-4 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 flex items-center justify-center space-x-2 transition duration-200">
+                        <i class="fa-solid fa-plug text-rose-500 text-sm" id="btnConnectIcon"></i>
+                        <span id="btnConnectText">Kết Nối Cổng COM</span>
+                    </button>
+                    
+                    <button id="btnFlash" disabled onclick="flashFirmware()" class="md:col-span-2 py-3 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white flex items-center justify-center space-x-2 shadow-lg shadow-indigo-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition duration-200">
+                        <i class="fa-solid fa-arrow-up-from-bracket text-sm"></i>
+                        <span>⚡ Bắt Đầu Ghi & Nạp Firmware</span>
+                    </button>
+                </div>
+                
+                <button id="btnReset" disabled onclick="resetDevice()" class="w-full mt-3 py-2 px-4 rounded-xl text-xs font-bold bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/30 text-rose-300 flex items-center justify-center space-x-2 transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+                    <span>Khởi Động Lại Chip (Hard Reset)</span>
+                </button>
+            </div>
+            
+        </div>
+
+        <!-- Right Side: Diagram Preview & Logs Console (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col space-y-6">
+            
+            <!-- Pinout Diagram & Screen Preview -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl flex flex-col min-h-[300px] justify-between relative overflow-hidden">
+                <!-- Background ambient design -->
+                <div class="absolute -right-20 -top-20 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4">
+                    <h2 class="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center">
+                        <i class="fa-solid fa-circle-nodes text-emerald-400 mr-2 text-sm"></i> SƠ ĐỒ CHÂN (PINOUT)
+                    </h2>
+                    <span id="previewTag" class="text-[9px] px-2 py-0.5 bg-slate-900 border border-slate-800 text-slate-500 rounded-full font-mono">Chưa cấu hình</span>
+                </div>
+
+                <div id="pinoutDiagramContainer" class="flex-grow flex flex-col justify-center items-center py-4">
+                    <!-- Dynamic view gets rendered here -->
+                </div>
+            </div>
+
+            <!-- Real-time Terminal Log Console -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl flex flex-col h-[340px]">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-2">
+                    <h3 class="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center">
+                        <i class="fa-solid fa-terminal text-yellow-400 mr-1.5 text-xs"></i> Terminal Console Log
+                    </h3>
+                    <button onclick="clearConsole()" class="text-[10px] text-slate-500 hover:text-slate-300 flex items-center space-x-1 transition duration-150">
+                        <i class="fa-solid fa-trash-can text-[9px]"></i>
+                        <span>Xóa log</span>
+                    </button>
+                </div>
+                
+                <!-- Progress bar and status indicator -->
+                <div id="progressContainer" class="mb-2 hidden">
+                    <div class="flex justify-between items-center text-[10px] mb-1.5">
+                        <span id="progressStatusText" class="text-slate-400 font-medium">Đang tiến hành...</span>
+                        <span id="progressPercentageText" class="text-blue-400 font-bold">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden border border-slate-900">
+                        <div id="progressBar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full w-0 transition-all duration-150 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+                    </div>
+                </div>
+
+                <!-- Console Output Scroll Box -->
+                <div id="terminalLogConsole" class="flex-grow bg-black/90 rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-emerald-400 overflow-y-auto max-h-[260px] border border-slate-950 shadow-inner">
+                    <div class="text-slate-500 italic">[Chưa có log. Hãy chọn cấu hình và bấm kết nối để bắt đầu.]</div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 text-center text-[11px] text-slate-600 border-t border-slate-950 bg-slate-950/40">
+        <p>© 2026 Xiaozhi Local Flasher Platform. Thiết kế trên chuẩn Web Serial API trực tiếp trên trình duyệt.</p>
+    </footer>
+
+    <!-- Web Serial Flash Engine module -->
+    <script type="module">
+        import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js/bundle.js';
+
+        // Global states
+        let manifest = [];
+        let activeTab = 'presets'; // presets | matrix
+        let selectedPresetIndex = null;
+        
+        // Matrix Custom states
+        let currentChip = 'ESP32-S3';
+        let currentDisplay = 'ST7789';
+        let currentAudio = 'INMP441';
+        
+        let activeFirmware = null;
+        
+        // Serial variables
+        let isConnected = false;
+        let devicePort = null;
+        let deviceTransport = null;
+        let espLoader = null;
+
+        // Load manifest config on bootstrap
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Check browser capability for Web Serial
+            if (!('serial' in navigator)) {
+                document.getElementById('browserWarningBanner').classList.remove('hidden');
+                document.getElementById('btnConnect').disabled = true;
+                document.getElementById('btnFlash').disabled = true;
+                document.getElementById('btnReset').disabled = true;
+                writeToConsole('❌ Trình duyệt hiện tại không hỗ trợ Web Serial API.');
+                writeToConsole('👉 Vui lòng sử dụng Chrome, Edge hoặc Brave trên PC/Mac.');
+            }
+
+            await loadManifest();
+            renderDefaultPreview();
+        });
+
+        // Fetch manifest.json
+        async function loadManifest() {
+            try {
+                const response = await fetch('/api/manifest');
+                if (!response.ok) throw new Error('Không tải được manifest.json');
+                const data = await response.json();
+                manifest = data.firmwares;
+                
+                renderPresetsList();
+                renderMatrixCustomizers();
+                
+                // Select first preset by default
+                if (manifest.length > 0) {
+                    selectPreset(0);
+                }
+            } catch (err) {
+                console.error(err);
+                writeToConsole('❌ Không thể tải dữ liệu manifest.json cấu hình phần cứng.');
+            }
+        }
+
+        // Render Presets Tab (TAB 1)
+        function renderPresetsList() {
+            const container = document.getElementById('tabPresetsContent');
+            container.innerHTML = manifest.map((fw, idx) => {
+                return `
+                    <div id="preset-card-${idx}" onclick="selectPreset(${idx})" class="group border border-slate-800/80 bg-slate-900/30 hover:bg-slate-900/70 hover:border-slate-700/80 transition duration-200 cursor-pointer rounded-xl p-4 flex flex-col justify-between h-full relative">
+                        <div class="absolute top-3.5 right-3.5 select-icon hidden">
+                            <i class="fa-solid fa-circle-check text-blue-500 text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="text-xs font-bold text-slate-200 group-hover:text-white transition">${fw.name}</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 leading-normal line-clamp-2 mb-4">${fw.description}</p>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mt-auto pt-2 border-t border-slate-800/40">
+                            <span class="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono">${fw.chip}</span>
+                            <span class="text-[9px] px-2 py-0.5 rounded bg-blue-950/40 text-blue-400 border border-blue-900/30">LCD: ${fw.display}</span>
+                            <span class="text-[9px] px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-900/30">Mic: ${fw.audio}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Matrix Custom Option cards (TAB 2)
+        function renderMatrixCustomizers() {
+            // Extract distinct values
+            const chips = [...new Set(manifest.map(fw => fw.chip))];
+            const displays = [...new Set(manifest.map(fw => fw.display))];
+            const audios = [...new Set(manifest.map(fw => fw.audio))];
+
+            // Render MCU Chips
+            const chipContainer = document.getElementById('matrixChipsContainer');
+            chipContainer.innerHTML = chips.map(chip => `
+                <label id="matrix-chip-${chip}" onclick="selectMatrixOption('chip', '${chip}')" class="flex items-center justify-between border border-slate-800/80 bg-slate-900/30 p-3 rounded-xl cursor-pointer hover:bg-slate-900/60 transition duration-150">
+                    <span class="text-xs font-bold font-mono text-slate-300">${chip}</span>
+                    <input type="radio" name="matrix_chip" value="${chip}" ${chip === currentChip ? 'checked' : ''} class="hidden">
+                    <div class="radio-dot w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center">
+                        <div class="dot w-2 h-2 rounded-full bg-blue-500 hidden"></div>
+                    </div>
+                </label>
+            `).join('');
+
+            // Render Displays
+            const displayContainer = document.getElementById('matrixDisplaysContainer');
+            displayContainer.innerHTML = displays.map(disp => `
+                <label id="matrix-display-${disp}" onclick="selectMatrixOption('display', '${disp}')" class="flex flex-col justify-between border border-slate-800/80 bg-slate-900/30 p-3 rounded-xl cursor-pointer hover:bg-slate-900/60 transition duration-150 text-center">
+                    <i class="fa-solid ${disp === 'None' ? 'fa-ban text-slate-500' : 'fa-tv text-blue-400'} text-xs mb-2"></i>
+                    <span class="text-[11px] font-medium text-slate-300 truncate">${disp === 'None' ? 'Không màn hình' : disp}</span>
+                    <input type="radio" name="matrix_display" value="${disp}" ${disp === currentDisplay ? 'checked' : ''} class="hidden">
+                </label>
+            `).join('');
+
+            // Render Audios
+            const audioContainer = document.getElementById('matrixAudiosContainer');
+            audioContainer.innerHTML = audios.map(aud => `
+                <label id="matrix-audio-${aud}" onclick="selectMatrixOption('audio', '${aud}')" class="flex flex-col justify-between border border-slate-800/80 bg-slate-900/30 p-3 rounded-xl cursor-pointer hover:bg-slate-900/60 transition duration-150 text-center">
+                    <i class="fa-solid ${aud === 'None' ? 'fa-microphone-slash text-slate-500' : 'fa-microphone text-emerald-400'} text-xs mb-2"></i>
+                    <span class="text-[11px] font-medium text-slate-300 truncate">${aud === 'None' ? 'Không micro' : aud}</span>
+                    <input type="radio" name="matrix_audio" value="${aud}" ${aud === currentAudio ? 'checked' : ''} class="hidden">
+                </label>
+            `).join('');
+            
+            updateMatrixUI();
+        }
+
+        // Switch Tab UI & Logical Mode
+        window.switchTab = function(tab) {
+            activeTab = tab;
+            const tabPresetsBtn = document.getElementById('tabPresetsBtn');
+            const tabMatrixBtn = document.getElementById('tabMatrixBtn');
+            const tabPresetsContent = document.getElementById('tabPresetsContent');
+            const tabMatrixContent = document.getElementById('tabMatrixContent');
+
+            if (tab === 'presets') {
+                // UI styles
+                tabPresetsBtn.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition duration-200 bg-blue-600 text-white shadow-md";
+                tabMatrixBtn.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition duration-200 text-slate-400 hover:text-slate-200 hover:bg-slate-900";
+                
+                // Show/hide boxes
+                tabPresetsContent.classList.remove('hidden');
+                tabMatrixContent.classList.add('hidden');
+                
+                // Restore active preset logic
+                if (selectedPresetIndex !== null) {
+                    selectPreset(selectedPresetIndex);
+                }
+            } else {
+                // UI styles
+                tabPresetsBtn.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition duration-200 text-slate-400 hover:text-slate-200 hover:bg-slate-900";
+                tabMatrixBtn.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition duration-200 bg-blue-600 text-white shadow-md";
+                
+                // Show/hide boxes
+                tabPresetsContent.classList.add('hidden');
+                tabMatrixContent.classList.remove('hidden');
+                
+                // Trigger config lookup using current custom choices
+                matchCustomMatrix();
+            }
+        }
+
+        // Selection of a Pre-built Preset (TAB 1)
+        window.selectPreset = function(index) {
+            selectedPresetIndex = index;
+            const fw = manifest[index];
+            activeFirmware = fw;
+
+            // Update UI card selections
+            document.querySelectorAll('[id^="preset-card-"]').forEach(card => {
+                card.classList.remove('border-blue-500', 'bg-blue-950/20', 'shadow-md', 'shadow-blue-500/5');
+                card.classList.add('border-slate-800/80', 'bg-slate-900/30');
+                card.querySelector('.select-icon').classList.add('hidden');
+            });
+            const selectedCard = document.getElementById(`preset-card-${index}`);
+            if (selectedCard) {
+                selectedCard.classList.add('border-blue-500', 'bg-blue-950/20', 'shadow-md', 'shadow-blue-500/5');
+                selectedCard.classList.remove('border-slate-800/80', 'bg-slate-900/30');
+                selectedCard.querySelector('.select-icon').classList.remove('hidden');
+            }
+
+            // Sync Custom options values with selected preset
+            currentChip = fw.chip;
+            currentDisplay = fw.display;
+            currentAudio = fw.audio;
+
+            updateMatrixUI();
+
+            // Enable flash button
+            document.getElementById('btnFlash').disabled = false;
+            document.getElementById('noMatchBanner').classList.add('hidden');
+            
+            // Show config description
+            const descBanner = document.getElementById('firmwareDescriptionBanner');
+            descBanner.classList.remove('hidden');
+            document.getElementById('firmwareDescriptionText').innerText = `${fw.description} (File nạp: ${fw.file})`;
+
+            // Update preview and pinout status tags
+            document.getElementById('previewTag').innerText = `${fw.chip} + ${fw.display} + ${fw.audio}`;
+            renderHardwarePreview(fw);
+        }
+
+        // Trigger custom matrix options click
+        window.selectMatrixOption = function(type, value) {
+            if (type === 'chip') currentChip = value;
+            else if (type === 'display') currentDisplay = value;
+            else if (type === 'audio') currentAudio = value;
+
+            updateMatrixUI();
+            matchCustomMatrix();
+        }
+
+        // Update CSS highlight classes for Custom Matrix layout selection
+        function updateMatrixUI() {
+            // Uncheck and reset chip styles
+            document.querySelectorAll('[id^="matrix-chip-"]').forEach(el => {
+                el.classList.remove('border-blue-500', 'bg-blue-950/20');
+                el.classList.add('border-slate-800/80', 'bg-slate-900/30');
+                el.querySelector('.dot').classList.add('hidden');
+            });
+            const chipEl = document.getElementById(`matrix-chip-${currentChip}`);
+            if (chipEl) {
+                chipEl.classList.add('border-blue-500', 'bg-blue-950/20');
+                chipEl.classList.remove('border-slate-800/80', 'bg-slate-900/30');
+                chipEl.querySelector('.dot').classList.remove('hidden');
+            }
+
+            // Uncheck and reset display styles
+            document.querySelectorAll('[id^="matrix-display-"]').forEach(el => {
+                el.classList.remove('border-blue-500', 'bg-blue-950/20');
+                el.classList.add('border-slate-800/80', 'bg-slate-900/30');
+            });
+            const displayEl = document.getElementById(`matrix-display-${currentDisplay}`);
+            if (displayEl) {
+                displayEl.classList.add('border-blue-500', 'bg-blue-950/20');
+                displayEl.classList.remove('border-slate-800/80', 'bg-slate-900/30');
+            }
+
+            // Uncheck and reset audio styles
+            document.querySelectorAll('[id^="matrix-audio-"]').forEach(el => {
+                el.classList.remove('border-blue-500', 'bg-blue-950/20');
+                el.classList.add('border-slate-800/80', 'bg-slate-900/30');
+            });
+            const audioEl = document.getElementById(`matrix-audio-${currentAudio}`);
+            if (audioEl) {
+                audioEl.classList.add('border-blue-500', 'bg-blue-950/20');
+                audioEl.classList.remove('border-slate-800/80', 'bg-slate-900/30');
+            }
+        }
+
+        // Check if customizable values match any firmwares in manifest
+        function matchCustomMatrix() {
+            const match = manifest.find(fw => fw.chip === currentChip && fw.display === currentDisplay && fw.audio === currentAudio);
+            
+            if (match) {
+                activeFirmware = match;
+                
+                // Identify index for preset tab synchronization
+                const idx = manifest.findIndex(fw => fw === match);
+                selectedPresetIndex = idx;
+                
+                // Highlight preset tab too
+                document.querySelectorAll('[id^="preset-card-"]').forEach(card => {
+                    card.classList.remove('border-blue-500', 'bg-blue-950/20', 'shadow-md', 'shadow-blue-500/5');
+                    card.classList.add('border-slate-800/80', 'bg-slate-900/30');
+                    card.querySelector('.select-icon').classList.add('hidden');
+                });
+                const card = document.getElementById(`preset-card-${idx}`);
+                if (card) {
+                    card.classList.add('border-blue-500', 'bg-blue-950/20', 'shadow-md', 'shadow-blue-500/5');
+                    card.classList.remove('border-slate-800/80', 'bg-slate-900/30');
+                    card.querySelector('.select-icon').classList.remove('hidden');
+                }
+
+                document.getElementById('btnFlash').disabled = false;
+                document.getElementById('noMatchBanner').classList.add('hidden');
+                
+                const descBanner = document.getElementById('firmwareDescriptionBanner');
+                descBanner.classList.remove('hidden');
+                document.getElementById('firmwareDescriptionText').innerText = `${match.description} (File nạp: ${match.file})`;
+
+                document.getElementById('previewTag').innerText = `${match.chip} + ${match.display} + ${match.audio}`;
+                renderHardwarePreview(match);
+            } else {
+                activeFirmware = null;
+                selectedPresetIndex = null;
+                
+                document.getElementById('btnFlash').disabled = true;
+                document.getElementById('noMatchBanner').classList.remove('hidden');
+                document.getElementById('firmwareDescriptionBanner').classList.add('hidden');
+                
+                document.getElementById('previewTag').innerText = 'Không khớp';
+                renderErrorPreview();
+            }
+        }
+
+        // Render empty hardware preview selection
+        function renderDefaultPreview() {
+            const container = document.getElementById('pinoutDiagramContainer');
+            container.innerHTML = `
+                <div class="text-center text-slate-500 py-10 flex flex-col items-center">
+                    <i class="fa-solid fa-microchip text-4xl mb-3 text-slate-700"></i>
+                    <p class="text-xs">Chọn cấu hình để hiển thị sơ đồ nối chân linh kiện.</p>
+                </div>
+            `;
+        }
+
+        // Render error preview selection
+        function renderErrorPreview() {
+            const container = document.getElementById('pinoutDiagramContainer');
+            container.innerHTML = `
+                <div class="text-center text-rose-400 py-10 flex flex-col items-center">
+                    <i class="fa-solid fa-triangle-exclamation text-3xl mb-2 text-rose-500"></i>
+                    <p class="text-xs font-semibold">Cấu hình linh kiện không khả dụng</p>
+                    <p class="text-[10px] text-slate-500 mt-1">Vui lòng thay đổi lựa chọn chip, màn hình hoặc mic.</p>
+                </div>
+            `;
+        }
+
+        // Render graphical preview of board & pin matching table
+        function renderHardwarePreview(fw) {
+            const displayPins = Object.entries(fw.pinout.display || {});
+            const audioPins = Object.entries(fw.pinout.audio || {});
+
+            let displayRows = displayPins.map(([pin, gpio]) => `
+                <div class="flex justify-between items-center py-1 border-b border-slate-800/40 text-[10px]">
+                    <span class="text-slate-400 font-mono font-medium">${pin}</span>
+                    <i class="fa-solid fa-arrow-right-long text-[8px] text-blue-500/40"></i>
+                    <span class="text-blue-400 font-bold font-mono">${gpio}</span>
+                </div>
+            `).join('');
+
+            let audioRows = audioPins.map(([pin, gpio]) => `
+                <div class="flex justify-between items-center py-1 border-b border-slate-800/40 text-[10px]">
+                    <span class="text-slate-400 font-mono font-medium">${pin}</span>
+                    <i class="fa-solid fa-arrow-right-long text-[8px] text-emerald-500/40"></i>
+                    <span class="text-emerald-400 font-bold font-mono">${gpio}</span>
+                </div>
+            `).join('');
+
+            // Customize graphic display outline
+            let lcdClass = 'lcd-screen-square';
+            let lcdIcon = 'fa-tv';
+            
+            if (fw.display === 'GC9A01') {
+                lcdClass = 'lcd-screen-circle';
+                lcdIcon = 'fa-compass';
+            } else if (fw.display === 'ILI9341') {
+                lcdClass = 'lcd-screen-rect';
+                lcdIcon = 'fa-laptop-code';
+            } else if (fw.display === 'None') {
+                lcdClass = 'hidden';
+            }
+
+            const container = document.getElementById('pinoutDiagramContainer');
+            container.innerHTML = `
+                <div class="w-full flex flex-col space-y-4">
+                    
+                    <!-- Diagram Graphic Simulator Block -->
+                    <div class="bg-slate-950/60 border border-slate-900 p-4 rounded-xl flex items-center justify-center text-center shadow-lg relative min-h-[140px]">
+                        ${fw.display === 'None' ? `
+                            <div class="flex flex-col items-center justify-center">
+                                <div class="w-20 h-14 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center relative shadow-inner">
+                                    <div class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></div>
+                                    <div class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                    <i class="fa-solid fa-microchip text-slate-700 text-xl"></i>
+                                </div>
+                                <span class="text-[9px] text-slate-500 font-mono mt-2 uppercase">ESP32 Core Board (No Screen)</span>
+                            </div>
+                        ` : `
+                            <div class="flex flex-col items-center">
+                                <div class="${lcdClass}">
+                                    <div class="sim-grid"></div>
+                                    <div class="sim-scanline"></div>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center p-2">
+                                        <i class="fa-solid ${lcdIcon} text-lg text-blue-400 mb-1 animate-pulse"></i>
+                                        <span class="text-[8px] font-bold text-blue-200 font-mono tracking-wider">${fw.display}</span>
+                                    </div>
+                                </div>
+                                <span class="text-[9px] text-slate-500 font-mono mt-1.5 uppercase">${fw.chip} Layout</span>
+                            </div>
+                        `}
+                    </div>
+
+                    <!-- Side-by-side Pin Lists -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        
+                        <!-- display pin lists -->
+                        <div class="bg-blue-950/10 border border-blue-950/20 p-3 rounded-xl">
+                            <h4 class="text-[10px] font-bold text-blue-300 mb-2 pb-1 border-b border-blue-900/20 flex items-center">
+                                <i class="fa-solid fa-tv mr-1 text-blue-400"></i> Màn hình: ${fw.display === 'None' ? 'Không' : fw.display}
+                            </h4>
+                            <div class="space-y-1">
+                                ${displayRows || '<div class="text-[9px] text-slate-500 italic">Không yêu cầu nối dây</div>'}
+                            </div>
+                        </div>
+
+                        <!-- audio pin lists -->
+                        <div class="bg-emerald-950/10 border border-emerald-950/20 p-3 rounded-xl">
+                            <h4 class="text-[10px] font-bold text-emerald-300 mb-2 pb-1 border-b border-emerald-900/20 flex items-center">
+                                <i class="fa-solid fa-microphone mr-1 text-emerald-400"></i> Micro: ${fw.audio === 'None' ? 'Không' : fw.audio}
+                            </h4>
+                            <div class="space-y-1">
+                                ${audioRows || '<div class="text-[9px] text-slate-500 italic">Không yêu cầu nối dây</div>'}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            `;
+        }
+
+        // Terminal logging helper
+        function writeToConsole(message) {
+            const consoleBox = document.getElementById('terminalLogConsole');
+            if (consoleBox.querySelector('.italic')) {
+                consoleBox.innerHTML = '';
+            }
+            
+            const line = document.createElement('div');
+            // Timestamp prepended
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            line.innerHTML = `<span class="text-slate-600 font-mono select-none mr-2">[${timeStr}]</span> ${message}`;
+            consoleBox.appendChild(line);
+            
+            // Auto scroll to bottom
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        // Clear terminal logs
+        window.clearConsole = function() {
+            document.getElementById('terminalLogConsole').innerHTML = `
+                <div class="text-slate-500 italic">[Bảng điều khiển đã được xóa]</div>
+            `;
+        }
+
+        // Update progress bar
+        function updateProgress(percentage, text = '') {
+            const container = document.getElementById('progressContainer');
+            const percentText = document.getElementById('progressPercentageText');
+            const bar = document.getElementById('progressBar');
+            const statusText = document.getElementById('progressStatusText');
+
+            if (percentage === null) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            percentText.innerText = `${percentage}%`;
+            bar.style.width = `${percentage}%`;
+            
+            if (text) {
+                statusText.innerText = text;
+            }
+        }
+
+        // UART Port Connection toggles
+        window.toggleConnection = async function() {
+            if (isConnected) {
+                writeToConsole('🔌 Đang đóng kết nối cổng Serial...');
+                try {
+                    if (deviceTransport) {
+                        await deviceTransport.disconnect();
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+                setDisconnectedState();
+                writeToConsole('🔌 Đã đóng kết nối thành công.');
+            } else {
+                try {
+                    writeToConsole('🔌 Đang yêu cầu chọn cổng COM...');
+                    devicePort = await navigator.serial.requestPort();
+                    deviceTransport = new Transport(devicePort, true);
+                    
+                    writeToConsole('⏳ Đang đồng bộ hóa handshake với chip ESP32 (ở Baudrate 115200)...');
+                    
+                    const termObj = {
+                        clean: () => {},
+                        writeLine: (data) => writeToConsole(data),
+                        write: (data) => writeToConsole(data)
+                    };
+
+                    espLoader = new ESPLoader({
+                        transport: deviceTransport,
+                        baudrate: 115200,
+                        terminal: termObj
+                    });
+
+                    await espLoader.main();
+                    isConnected = true;
+                    setConnectedState();
+
+                    const detectedChip = await espLoader.chip.CHIP_NAME;
+                    writeToConsole(`✅ Kết nối thành công! Loại chip phát hiện: <strong class="text-white">${detectedChip}</strong>`);
+                } catch (err) {
+                    console.error(err);
+                    writeToConsole(`❌ Kết nối thất bại: ${err.message || err}`);
+                    setDisconnectedState();
+                }
+            }
+        }
+
+        function setConnectedState() {
+            const btn = document.getElementById('btnConnect');
+            const text = document.getElementById('btnConnectText');
+            const icon = document.getElementById('btnConnectIcon');
+            const dot = document.getElementById('serialStatusIndicator');
+            const statusText = document.getElementById('serialStatusText');
+
+            btn.className = "py-3 px-4 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 text-white flex items-center justify-center space-x-2 transition duration-200";
+            text.innerText = "Đã Kết Nối";
+            icon.className = "fa-solid fa-circle-check text-white text-sm";
+            dot.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]";
+            statusText.innerText = "Cổng COM đã kết nối";
+            
+            document.getElementById('btnReset').disabled = false;
+        }
+
+        function setDisconnectedState() {
+            isConnected = false;
+            devicePort = null;
+            deviceTransport = null;
+            espLoader = null;
+
+            const btn = document.getElementById('btnConnect');
+            const text = document.getElementById('btnConnectText');
+            const icon = document.getElementById('btnConnectIcon');
+            const dot = document.getElementById('serialStatusIndicator');
+            const statusText = document.getElementById('serialStatusText');
+
+            btn.className = "py-3 px-4 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 flex items-center justify-center space-x-2 transition duration-200";
+            text.innerText = "Kết Nối Cổng COM";
+            icon.className = "fa-solid fa-plug text-rose-500 text-sm";
+            dot.className = "inline-block w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]";
+            statusText.innerText = "Chưa kết nối";
+
+            document.getElementById('btnReset').disabled = true;
+            updateProgress(null);
+        }
+
+        // Hard Reset ESP32
+        window.resetDevice = async function() {
+            if (!espLoader) {
+                writeToConsole("⚠️ Chưa có kết nối chip để Reset.");
+                return;
+            }
+            try {
+                writeToConsole("🔄 Đang gửi tín hiệu Hard Reset (kích hoạt chân RTS/DTR)...");
+                await espLoader.hardReset();
+                writeToConsole("✅ Khởi động lại chip hoàn tất.");
+            } catch (err) {
+                console.error(err);
+                writeToConsole(`❌ Khởi động lại thất bại: ${err.message || err}`);
+            }
+        }
+
+        // Flashing Operation Routine
+        window.flashFirmware = async function() {
+            if (!activeFirmware) {
+                writeToConsole("⚠️ Vui lòng chọn một cấu hình firmware hợp lệ trước.");
+                return;
+            }
+
+            // Connect if not yet connected
+            if (!isConnected) {
+                try {
+                    await toggleConnection();
+                } catch (err) {
+                    writeToConsole(`❌ Tự động kết nối thất bại: ${err.message || err}`);
+                    return;
+                }
+            }
+
+            if (!espLoader) {
+                writeToConsole("❌ Lỗi: ESPLoader chưa khởi tạo thành công.");
+                return;
+            }
+
+            // Lock UI buttons during flash
+            const btnConnect = document.getElementById('btnConnect');
+            const btnFlash = document.getElementById('btnFlash');
+            const btnReset = document.getElementById('btnReset');
+            
+            btnConnect.disabled = true;
+            btnFlash.disabled = true;
+            btnReset.disabled = true;
+
+            // Load and display progress bar
+            updateProgress(0, 'Đang chuẩn bị file...');
+
+            const binaryUrl = `/firmwares/${activeFirmware.file}`;
+            writeToConsole(`⏳ Đang tải file binary từ: ${binaryUrl}...`);
+
+            try {
+                // Fetch bin file from Flask server
+                const response = await fetch(binaryUrl);
+                if (!response.ok) throw new Error(`Không tải được file binary từ server. HTTP: ${response.status}`);
+                
+                const buffer = await response.arrayBuffer();
+                const binData = new Uint8Array(buffer);
+                writeToConsole(`📂 Tải binary thành công, kích thước: ${binData.length} bytes.`);
+
+                // Increase Baudrate for flashing if configured
+                const speedSelect = document.getElementById('selectBaudrate');
+                const writeSpeed = parseInt(speedSelect.value);
+                
+                if (writeSpeed !== 115200) {
+                    writeToConsole(`⚡ Đang chuyển đổi tốc độ Baudrate ghi lên: ${writeSpeed}...`);
+                    await espLoader.changeBaud(writeSpeed);
+                    writeToConsole("✅ Chuyển tốc độ Baudrate thành công.");
+                }
+
+                // Erase Flash if requested
+                const eraseChecked = document.getElementById('checkEraseFlash').checked;
+                if (eraseChecked) {
+                    writeToConsole("🧹 Đang thực hiện Erase Flash (xóa sạch bộ nhớ)...");
+                    updateProgress(10, 'Đang xóa flash...');
+                    await espLoader.eraseFlash();
+                    writeToConsole("✅ Xóa bộ nhớ Flash thành công!");
+                }
+
+                // Flash Firmware
+                writeToConsole("🚀 Bắt đầu ghi file binary vào offset: 0x00...");
+                updateProgress(20, 'Đang ghi flash...');
+
+                const flashOptions = {
+                    fileArray: [
+                        { data: binData, address: 0x00 }
+                    ],
+                    flashSize: 'keep',
+                    flashMode: 'keep',
+                    flashFreq: 'keep',
+                    reportProgress: (fileIdx, written, total) => {
+                        const percent = Math.round((written / total) * 100);
+                        updateProgress(percent, `Đang ghi: ${written} / ${total} bytes`);
+                    }
+                };
+
+                await espLoader.writeFlash(flashOptions);
+                writeToConsole("🎉 CHÚC MỪNG! Quá trình nạp firmware đã thành công tốt đẹp!");
+
+                // Final Hard Reset
+                updateProgress(100, 'Đang khởi động lại chip...');
+                writeToConsole("🔄 Đang kích hoạt Hard Reset để khởi chạy code mới...");
+                await espLoader.hardReset();
+                writeToConsole("🚀 Hoàn thành nạp và Reset! Chip đang chạy.");
+                
+            } catch (err) {
+                console.error(err);
+                writeToConsole(`❌ LỖI TRONG QUÁ TRÌNH NẠP: ${err.message || err}`);
+                updateProgress(null);
+            } finally {
+                // Unlock UI buttons
+                btnConnect.disabled = false;
+                btnFlash.disabled = false;
+                btnReset.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
